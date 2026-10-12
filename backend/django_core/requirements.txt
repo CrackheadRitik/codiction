@@ -25,6 +25,7 @@ dj-database-url==2.1.0
 Django==5.0.1
 django-allauth==0.61.1
 django-cors-headers==4.3.1
+django-redis==5.4.0
 djangorestframework==3.14.0
 djangorestframework-simplejwt==5.3.1
 flake8==7.0.0
@@ -55,6 +56,7 @@ pytest==8.0.0
 pytest-cov==4.1.0
 pytest-django==4.8.0
 python-dateutil==2.9.0.post0
+python-decouple==3.8
 python-dotenv==1.0.0
 python3-openid==3.2.0
 pytz==2026.5
