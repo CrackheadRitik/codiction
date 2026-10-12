@@ -58,3 +58,8 @@ yarn-error.log*
 backups/
 *.sql
 *.sql.gz
+
+# Virtual environments
+.venv/
+venv/
+env/
