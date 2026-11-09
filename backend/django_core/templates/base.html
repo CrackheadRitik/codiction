@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Codiction - Get Addicted to Getting Better{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0f172a',
+                        secondary: '#1e293b',
+                        accent: '#38bdf8',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #e2e8f0; }
+        code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="min-h-screen flex flex-col">
+    
+    <!-- Navbar -->
+    <nav class="bg-secondary border-b border-slate-800 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <a href="/" class="flex items-center gap-2 text-xl font-bold">
+                    <span class="text-2xl">🏆</span>
+                    <span class="text-accent">Codiction</span>
+                </a>
+                
+                <div class="hidden md:flex items-center gap-6 text-sm">
+                    <a href="/problems/" class="hover:text-accent transition">Problems</a>
+                    <a href="/leaderboard/" class="hover:text-accent transition">Leaderboard</a>
+                    <a href="/messages/" class="hover:text-accent transition">Chat</a>
+                    <a href="/profile/" class="hover:text-accent transition">Profile</a>
+                </div>
+                
+                <div class="flex items-center gap-3 text-sm">
+                    {% if user.is_authenticated %}
+                        <span class="text-slate-400 hidden md:inline">{{ user.email }}</span>
+                        <button onclick="logout()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition">
+                            Logout
+                        </button>
+                    {% else %}
+                        <a href="/login/" class="px-3 py-1.5 hover:text-accent transition">Login</a>
+                        <a href="/register/" class="px-3 py-1.5 bg-accent text-primary rounded font-semibold hover:bg-sky-400 transition">
+                            Sign Up
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <main class="flex-1">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="bg-secondary border-t border-slate-800 py-6 mt-auto">
+        <div class="max-w-7xl mx-auto px-6 text-center text-sm text-slate-500">
+            <p>© 2026 Codiction — Get Addicted to Getting Better.</p>
+        </div>
+    </footer>
+    
+    <!-- Auth Helper -->
+    <script>
+        // Store tokens in localStorage
+        function getToken() {
+            return localStorage.getItem('access_token');
+        }
+        
+        function setToken(token) {
+            localStorage.setItem('access_token', token);
+        }
+        
+        function clearTokens() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+        }
+        
+        function logout() {
+            clearTokens();
+            window.location.href = '/';
+        }
+        
+        // Auto-redirect if not authenticated on protected pages
+        {% block auth_check %}{% endblock %}
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

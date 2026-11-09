@@ -29,6 +29,7 @@ ALLOWED_HOSTS = config(
 # APPLICATIONS
 # =====================================================
 DJANGO_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",

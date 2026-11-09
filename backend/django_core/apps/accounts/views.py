@@ -135,3 +135,21 @@ class UserDetailView(generics.RetrieveAPIView):
     serializer_class = UserPublicSerializer
     permission_classes = [permissions.AllowAny]
     lookup_field = "id"
+
+
+    # =====================================================
+# FRONTEND TEMPLATE VIEWS
+# =====================================================
+from django.views.generic import TemplateView
+
+
+class IndexView(TemplateView):
+    template_name = "index.html"
+
+
+class LoginPageView(TemplateView):
+    template_name = "auth/login.html"
+
+
+class RegisterPageView(TemplateView):
+    template_name = "auth/register.html"

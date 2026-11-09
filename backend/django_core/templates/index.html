@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Codiction - Master Coding Interviews{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 py-20">
+    
+    <!-- Hero -->
+    <div class="text-center mb-16">
+        <h1 class="text-5xl md:text-7xl font-extrabold mb-6 leading-tight">
+            Get <span class="text-accent">Addicted</span><br>
+            to Getting Better
+        </h1>
+        <p class="text-xl md:text-2xl text-slate-400 max-w-2xl mx-auto mb-10">
+            Master coding interviews with company-specific leaderboards, 
+            real-time chat, and adaptive learning.
+        </p>
+        <div class="flex gap-4 justify-center flex-wrap">
+            {% if user.is_authenticated %}
+                <a href="/problems/" class="px-8 py-4 bg-accent text-primary rounded-lg font-bold text-lg hover:bg-sky-400 transition">
+                    Start Solving →
+                </a>
+            {% else %}
+                <a href="/register/" class="px-8 py-4 bg-accent text-primary rounded-lg font-bold text-lg hover:bg-sky-400 transition">
+                    Start Free →
+                </a>
+            {% endif %}
+            <a href="/problems/" class="px-8 py-4 border-2 border-slate-700 rounded-lg font-semibold hover:border-accent hover:text-accent transition">
+                Browse Problems
+            </a>
+        </div>
+    </div>
+    
+    <!-- Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20">
+        <div class="bg-secondary rounded-xl p-8 text-center border border-slate-800">
+            <div class="text-5xl font-bold text-accent mb-2">300+</div>
+            <div class="text-slate-400 text-lg">Coding Problems</div>
+        </div>
+        <div class="bg-secondary rounded-xl p-8 text-center border border-slate-800">
+            <div class="text-5xl font-bold text-accent mb-2">10+</div>
+            <div class="text-slate-400 text-lg">Topics Covered</div>
+        </div>
+        <div class="bg-secondary rounded-xl p-8 text-center border border-slate-800">
+            <div class="text-5xl font-bold text-accent mb-2">5</div>
+            <div class="text-slate-400 text-lg">Tech Companies</div>
+        </div>
+    </div>
+    
+    <!-- Features -->
+    <div class="mb-16">
+        <h2 class="text-3xl font-bold text-center mb-10">Why Codiction?</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-secondary rounded-xl p-8 border border-slate-800 hover:border-accent transition">
+                <div class="text-4xl mb-4">🎯</div>
+                <h3 class="text-xl font-bold mb-2">Company-Specific Prep</h3>
+                <p class="text-slate-400">Practice problems asked at Google, Amazon, Meta, Microsoft. See where you rank against other FAANG aspirants.</p>
+            </div>
+            <div class="bg-secondary rounded-xl p-8 border border-slate-800 hover:border-accent transition">
+                <div class="text-4xl mb-4">💬</div>
+                <h3 class="text-xl font-bold mb-2">Real-Time Chat</h3>
+                <p class="text-slate-400">Connect with other coders, share solutions, ask questions, and find study buddies—all within the platform.</p>
+            </div>
+            <div class="bg-secondary rounded-xl p-8 border border-slate-800 hover:border-accent transition">
+                <div class="text-4xl mb-4">🏆</div>
+                <h3 class="text-xl font-bold mb-2">Live Leaderboards</h3>
+                <p class="text-slate-400">Compete globally and by company. Track your progress and see exactly where you stand.</p>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

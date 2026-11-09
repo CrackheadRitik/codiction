@@ -22,6 +22,9 @@ urlpatterns = [
     path("api/submissions/", include("apps.submissions.urls", namespace="submissions")),
     path("api/leaderboard/", include("apps.leaderboard.urls", namespace="leaderboard")),
     path("api/messaging/", include("apps.messaging.urls", namespace="messaging")),
+
+    path("", include("apps.accounts.frontend_urls", namespace="accounts_frontend")),
+    path("", include("apps.problems.frontend_urls", namespace="problems_frontend")),
 ]
 
 if settings.DEBUG:

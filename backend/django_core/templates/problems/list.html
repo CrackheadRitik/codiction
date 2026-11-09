@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}Problems - Codiction{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 py-8" x-data="problemList()" x-init="init()">
+    
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-4xl font-bold mb-2">Problems</h1>
+        <p class="text-slate-400">Solve problems, track progress, master interviews</p>
+    </div>
+    
+    <!-- Filters -->
+    <div class="bg-secondary rounded-xl p-4 mb-6 border border-slate-800">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            
+            <div class="md:col-span-2">
+                <input 
+                    type="text" 
+                    x-model="search"
+                    @input.debounce.500ms="resetAndLoad()"
+                    placeholder="🔍 Search problems..."
+                    class="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-accent"
+                >
+            </div>
+            
+            <select 
+                x-model="difficulty"
+                @change="resetAndLoad()"
+                class="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-accent"
+            >
+                <option value="">All Difficulties</option>
+                <option value="Easy">Easy</option>
+                <option value="Medium">Medium</option>
+                <option value="Hard">Hard</option>
+            </select>
+            
+            <button 
+                @click="resetFilters()"
+                class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition"
+            >
+                Reset
+            </button>
+        </div>
+    </div>
+    
+    <!-- Stats -->
+    <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="bg-secondary rounded-lg p-4 border border-slate-800 text-center">
+            <div class="text-2xl font-bold text-accent" x-text="totalProblems || '—'"></div>
+            <div class="text-sm text-slate-400">Total Problems</div>
+        </div>
+        <div class="bg-secondary rounded-lg p-4 border border-slate-800 text-center">
+            <div class="text-2xl font-bold text-green-400" x-text="solvedCount || 0"></div>
+            <div class="text-sm text-slate-400">Solved by You</div>
+        </div>
+        <div class="bg-secondary rounded-lg p-4 border border-slate-800 text-center">
+            <div class="text-2xl font-bold text-sky-400" x-text="currentPage"></div>
+            <div class="text-sm text-slate-400">Current Page</div>
+        </div>
+    </div>
+    
+    <!-- Loading -->
+    <div x-show="loading" class="text-center py-12">
+        <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-accent border-t-transparent"></div>
+        <p class="mt-2 text-slate-400">Loading problems...</p>
+    </div>
+    
+    <!-- Error -->
+    <div x-show="error" x-cloak class="bg-red-900/50 border border-red-800 text-red-200 p-4 rounded-lg mb-6">
+        <span x-text="error"></span>
+    </div>
+    
+    <!-- Problems Table -->
+    <div x-show="!loading && !error" x-cloak class="bg-secondary rounded-xl border border-slate-800 overflow-hidden">
+        <table class="w-full">
+            <thead class="bg-slate-800/50 border-b border-slate-700">
+                <tr class="text-left text-sm text-slate-400">
+                    <th class="px-4 py-3 w-12">Status</th>
+                    <th class="px-4 py-3">Title</th>
+                    <th class="px-4 py-3 w-24">Difficulty</th>
+                    <th class="px-4 py-3 w-40 hidden md:table-cell">Topics</th>
+                    <th class="px-4 py-3 w-24 hidden md:table-cell text-right">Acceptance</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800">
+                <template x-for="problem in problems" :key="problem.id">
+                    <tr class="hover:bg-slate-800/50 transition cursor-pointer" @click="goToProblem(problem.slug)">
+                        <td class="px-4 py-3 text-center">
+                            <span x-show="problem.solved" class="text-green-400 text-lg">✅</span>
+                            <span x-show="!problem.solved" class="text-slate-600">○</span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="font-medium hover:text-accent transition" x-text="problem.title"></span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span 
+                                class="px-2 py-1 rounded text-xs font-semibold"
+                                :class="{
+                                    'bg-green-900/50 text-green-300': problem.difficulty === 'Easy',
+                                    'bg-yellow-900/50 text-yellow-300': problem.difficulty === 'Medium',
+                                    'bg-red-900/50 text-red-300': problem.difficulty === 'Hard',
+                                }"
+                                x-text="problem.difficulty"
+                            ></span>
+                        </td>
+                        <td class="px-4 py-3 hidden md:table-cell">
+                            <div class="flex flex-wrap gap-1">
+                                <template x-for="topic in problem.topics.slice(0, 2)" :key="topic.id">
+                                    <span class="px-2 py-0.5 bg-slate-700 rounded text-xs text-slate-300" x-text="topic.name"></span>
+                                </template>
+                                <span x-show="problem.topics.length > 2" class="px-2 py-0.5 text-xs text-slate-500" x-text="'+' + (problem.topics.length - 2)"></span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 hidden md:table-cell text-sm text-slate-400 text-right">
+                            <span x-text="problem.acceptance_rate + '%'"></span>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+        
+        <div x-show="problems.length === 0 && !loading" class="p-12 text-center">
+            <div class="text-6xl mb-4">🔍</div>
+            <h3 class="text-xl font-bold mb-2">No problems found</h3>
+            <p class="text-slate-400 mb-4">Try adjusting your filters</p>
+            <button @click="resetFilters()" class="px-6 py-2 bg-accent text-primary rounded-lg font-semibold">
+                Reset Filters
+            </button>
+        </div>
+    </div>
+    
+    <!-- Pagination -->
+    <div x-show="!loading && problems.length > 0" x-cloak class="flex justify-between items-center mt-6">
+        <button 
+            @click="prevPage()"
+            :disabled="!hasPrev"
+            class="px-4 py-2 bg-secondary border border-slate-700 rounded-lg hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+            ← Previous
+        </button>
+        <div class="text-slate-400 text-sm">
+            Page <span x-text="currentPage"></span>
+        </div>
+        <button 
+            @click="nextPage()"
+            :disabled="!hasNext"
+            class="px-4 py-2 bg-secondary border border-slate-700 rounded-lg hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+            Next →
+        </button>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function problemList() {
+    return {
+        problems: [],
+        loading: true,
+        error: null,
+        search: '',
+        difficulty: '',
+        currentPage: 1,
+        totalProblems: 0,
+        solvedCount: 0,
+        hasNext: false,
+        hasPrev: false,
+        allSolvedSlugs: new Set(),
+        
+        async init() {
+            await this.loadSolvedStatus();
+            await this.loadProblems();
+        },
+        
+        async loadSolvedStatus() {
+            try {
+                const token = localStorage.getItem('access_token');
+                if (!token) return;
+                
+                const response = await fetch('/api/submissions/?page_size=100', {
+                    headers: {'Authorization': `Bearer ${token}`},
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const subs = data.results || data;
+                    subs.forEach(s => {
+                        if (s.verdict === 'AC' && !s.is_sample_run) {
+                            this.allSolvedSlugs.add(s.problem_slug);
+                        }
+                    });
+                    this.solvedCount = this.allSolvedSlugs.size;
+                }
+            } catch (e) {
+                console.log('Solved status error:', e);
+            }
+        },
+        
+        async loadProblems() {
+            this.loading = true;
+            this.error = null;
+            
+            try {
+                const token = localStorage.getItem('access_token');
+                const params = new URLSearchParams({
+                    page: this.currentPage,
+                    page_size: 20,
+                });
+                if (this.search) params.append('search', this.search);
+                if (this.difficulty) params.append('difficulty', this.difficulty);
+                
+                const headers = {};
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+                
+                const response = await fetch(`/api/problems/?${params}`, {headers});
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                
+                this.problems = data.results.map(p => ({
+                    ...p,
+                    solved: this.allSolvedSlugs.has(p.slug),
+                }));
+                this.totalProblems = data.count;
+                this.hasNext = !!data.next;
+                this.hasPrev = !!data.previous;
+            } catch (e) {
+                this.error = `Failed to load problems: ${e.message}`;
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        resetAndLoad() {
+            this.currentPage = 1;
+            this.loadProblems();
+        },
+        
+        resetFilters() {
+            this.search = '';
+            this.difficulty = '';
+            this.currentPage = 1;
+            this.loadProblems();
+        },
+        
+        nextPage() {
+            if (this.hasNext) {
+                this.currentPage++;
+                this.loadProblems();
+                window.scrollTo({top: 0, behavior: 'smooth'});
+            }
+        },
+        
+        prevPage() {
+            if (this.hasPrev) {
+                this.currentPage--;
+                this.loadProblems();
+                window.scrollTo({top: 0, behavior: 'smooth'});
+            }
+        },
+        
+        goToProblem(slug) {
+            window.location.href = `/problems/${slug}/`;
+        },
+    };
+}
+</script>
+{% endblock %}
+
+{% block auth_check %}
+if (!getToken()) {
+    window.location.href = '/login/';
+}
+{% endblock %}
