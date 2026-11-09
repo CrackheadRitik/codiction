@@ -1,7 +1,5 @@
 """
 Codiction — Root URL configuration.
-
-API versioning via /api/v1/.
 """
 
 from django.conf import settings
@@ -12,7 +10,7 @@ from django.urls import include, path
 
 
 def health_check(request):
-    """Health check endpoint for Render, UptimeRobot, etc."""
+    """Health check endpoint."""
     return JsonResponse({"status": "ok", "service": "codiction-api"})
 
 
@@ -20,6 +18,10 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health_check, name="health-check"),
     path("api/accounts/", include("apps.accounts.urls", namespace="accounts")),
+    path("api/", include("apps.problems.urls", namespace="problems")),
+    path("api/submissions/", include("apps.submissions.urls", namespace="submissions")),
+    path("api/leaderboard/", include("apps.leaderboard.urls", namespace="leaderboard")),
+    path("api/messaging/", include("apps.messaging.urls", namespace="messaging")),
 ]
 
 if settings.DEBUG:

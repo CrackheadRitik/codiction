@@ -40,9 +40,11 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",  # ← ADD THIS
     "corsheaders",
     "channels",
 ]
+
 
 LOCAL_APPS = [
     "apps.accounts",
@@ -173,7 +175,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": False,
+    "BLACKLIST_AFTER_ROTATION": True,  # ← CHANGED to True
     "UPDATE_LAST_LOGIN": True,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": SECRET_KEY,
@@ -243,6 +245,7 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@codiction.dev
 # =====================================================
 JUDGE0_API_URL = config("JUDGE0_API_URL", default="http://localhost:2358")
 JUDGE0_API_KEY = config("JUDGE0_API_KEY", default="")
+JUDGE0_MOCK_MODE = config("JUDGE0_MOCK_MODE", default=False, cast=bool)
 
 # =====================================================
 # LOGGING

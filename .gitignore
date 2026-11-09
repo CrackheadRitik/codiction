@@ -1,4 +1,11 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+
 # Python
+
 __pycache__/
 *.py[cod]
 *$py.class
@@ -58,8 +65,3 @@ yarn-error.log*
 backups/
 *.sql
 *.sql.gz
-
-# Virtual environments
-.venv/
-venv/
-env/
