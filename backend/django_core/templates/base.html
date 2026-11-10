@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Codiction - Get Addicted to Getting Better{% endblock %}</title>
     
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -23,9 +26,10 @@
     </script>
     
     <!-- Alpine.js -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.0/dist/cdn.min.js"></script>
     
     <!-- Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     
     <style>
@@ -35,6 +39,7 @@
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        [x-cloak] { display: none !important; }
     </style>
     
     {% block extra_css %}{% endblock %}
@@ -58,17 +63,14 @@
                 </div>
                 
                 <div class="flex items-center gap-3 text-sm">
-                    {% if user.is_authenticated %}
-                        <span class="text-slate-400 hidden md:inline">{{ user.email }}</span>
-                        <button onclick="logout()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition">
-                            Logout
-                        </button>
-                    {% else %}
-                        <a href="/login/" class="px-3 py-1.5 hover:text-accent transition">Login</a>
-                        <a href="/register/" class="px-3 py-1.5 bg-accent text-primary rounded font-semibold hover:bg-sky-400 transition">
-                            Sign Up
-                        </a>
-                    {% endif %}
+                    <span id="nav-user-email" class="text-slate-400 hidden md:inline"></span>
+                    <button id="nav-logout-btn" onclick="logout()" style="display: none;" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition">
+                        Logout
+                    </button>
+                    <a id="nav-login-link" href="/login/" class="px-3 py-1.5 hover:text-accent transition">Login</a>
+                    <a id="nav-register-link" href="/register/" class="px-3 py-1.5 bg-accent text-primary rounded font-semibold hover:bg-sky-400 transition">
+                        Sign Up
+                    </a>
                 </div>
             </div>
         </div>
@@ -86,15 +88,24 @@
         </div>
     </footer>
     
-    <!-- Auth Helper -->
+    <!-- =====================================================
+         AUTH HELPERS (GLOBAL — outside all blocks)
+         ===================================================== -->
     <script>
-        // Store tokens in localStorage
+        // =====================================================
+        // TOKEN HELPERS
+        // =====================================================
         function getToken() {
             return localStorage.getItem('access_token');
         }
         
-        function setToken(token) {
-            localStorage.setItem('access_token', token);
+        function getRefreshToken() {
+            return localStorage.getItem('refresh_token');
+        }
+        
+        function setTokens(access, refresh) {
+            localStorage.setItem('access_token', access);
+            if (refresh) localStorage.setItem('refresh_token', refresh);
         }
         
         function clearTokens() {
@@ -107,8 +118,115 @@
             window.location.href = '/';
         }
         
-        // Auto-redirect if not authenticated on protected pages
-        {% block auth_check %}{% endblock %}
+        // =====================================================
+        // AUTO-REFRESH TOKEN
+        // =====================================================
+        async function refreshAccessToken() {
+            const refreshToken = getRefreshToken();
+            if (!refreshToken) return null;
+            
+            try {
+                const response = await fetch('/api/accounts/refresh/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({refresh: refreshToken}),
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    setTokens(data.access);
+                    return data.access;
+                } else {
+                    clearTokens();
+                    return null;
+                }
+            } catch (e) {
+                console.error('Token refresh failed:', e);
+                return null;
+            }
+        }
+        
+        // =====================================================
+        // AUTHENTICATED FETCH (auto-retry on 401)
+        // =====================================================
+        async function apiFetch(url, options = {}) {
+            options.headers = options.headers || {};
+            
+            const token = getToken();
+            if (token && !options.headers['Authorization']) {
+                options.headers['Authorization'] = `Bearer ${token}`;
+            }
+            
+            let response = await fetch(url, options);
+            
+            if (response.status === 401) {
+                console.log('401 - attempting token refresh');
+                const newToken = await refreshAccessToken();
+                
+                if (newToken) {
+                    options.headers['Authorization'] = `Bearer ${newToken}`;
+                    response = await fetch(url, options);
+                } else {
+                    clearTokens();
+                    window.location.href = '/login/';
+                    throw new Error('Authentication failed');
+                }
+            }
+            
+            return response;
+        }
+        
+        // =====================================================
+        // NAVBAR AUTH STATE
+        // =====================================================
+        async function updateNavAuthState() {
+            const token = getToken();
+            const emailEl = document.getElementById('nav-user-email');
+            const logoutBtn = document.getElementById('nav-logout-btn');
+            const loginLink = document.getElementById('nav-login-link');
+            const registerLink = document.getElementById('nav-register-link');
+            
+            if (!emailEl) return;
+            
+            if (token) {
+                // User is logged in — try to get their email
+                try {
+                    const response = await apiFetch('/api/accounts/me/');
+                    if (response.ok) {
+                        const user = await response.json();
+                        emailEl.textContent = user.email;
+                    } else {
+                        // Token invalid, clear it
+                        clearTokens();
+                        emailEl.textContent = '';
+                        if (logoutBtn) logoutBtn.style.display = 'none';
+                        if (loginLink) loginLink.style.display = 'inline-block';
+                        if (registerLink) registerLink.style.display = 'inline-block';
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Could not get user info:', e);
+                }
+                
+                if (logoutBtn) logoutBtn.style.display = 'inline-block';
+                if (loginLink) loginLink.style.display = 'none';
+                if (registerLink) registerLink.style.display = 'none';
+            } else {
+                // Not logged in
+                emailEl.textContent = '';
+                if (logoutBtn) logoutBtn.style.display = 'none';
+                if (loginLink) loginLink.style.display = 'inline-block';
+                if (registerLink) registerLink.style.display = 'inline-block';
+            }
+        }
+        
+        // Run on page load
+        document.addEventListener('DOMContentLoaded', updateNavAuthState);
+        
+        // =====================================================
+        // DEBUG LOG
+        // =====================================================
+        console.log('✅ Auth helpers loaded: getToken, apiFetch, refreshAccessToken, logout, setTokens');
     </script>
     
     {% block extra_js %}{% endblock %}
