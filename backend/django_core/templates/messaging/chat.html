@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+
+{% block title %}Chat - Codiction{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-6 py-8 h-[calc(100vh-80px)] flex flex-col" x-data="chatPage()" x-init="setTimeout(() => init(), 50)">
+    
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4 shrink-0">
+        <div class="flex items-center gap-3">
+            <a href="/messages/" class="text-slate-400 hover:text-accent transition">← Back</a>
+            <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold">
+                <span x-text="otherUser?.username?.substring(0, 2).toUpperCase() || '??'"></span>
+            </div>
+            <div>
+                <div class="font-bold" x-text="otherUser?.username || 'Loading...'"></div>
+                <div class="text-xs" :class="isConnected ? 'text-green-400' : 'text-red-400'">
+                    <span x-show="isConnected">● Online</span>
+                    <span x-show="!isConnected">● Connecting...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Messages Container -->
+    <div 
+        id="messages-container"
+        class="flex-1 bg-secondary rounded-xl border border-slate-800 p-4 overflow-y-auto mb-4"
+    >
+        <div x-show="loading" class="text-center py-8 text-slate-400">
+            Loading messages...
+        </div>
+        
+        <div x-show="!loading && messages.length === 0" class="text-center py-8 text-slate-400">
+            No messages yet. Say hello! 👋
+        </div>
+        
+        <div class="space-y-3">
+            <template x-for="msg in messages" :key="msg.id">
+                <div 
+                    class="flex"
+                    :class="msg.sender_username === currentUsername ? 'justify-end' : 'justify-start'"
+                >
+                    <div 
+                        class="max-w-[70%] rounded-lg px-4 py-2"
+                        :class="msg.sender_username === currentUsername 
+                            ? 'bg-accent text-primary' 
+                            : 'bg-slate-800 text-slate-100'"
+                    >
+                        <div class="text-xs opacity-70 mb-1" x-show="msg.sender_username !== currentUsername" x-text="msg.sender_username"></div>
+                        <div class="whitespace-pre-wrap break-words" x-text="msg.content"></div>
+                        <div class="text-xs opacity-50 mt-1" x-text="formatTime(msg.created_at)"></div>
+                    </div>
+                </div>
+            </template>
+        </div>
+        
+        <!-- Typing indicator -->
+        <div x-show="otherTyping" x-cloak class="flex justify-start mt-3">
+            <div class="bg-slate-800 rounded-lg px-4 py-2">
+                <span class="text-slate-400 text-sm">
+                    <span x-text="otherUser?.username"></span> is typing
+                    <span class="animate-pulse">...</span>
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Message Input -->
+    <div class="flex gap-2 shrink-0">
+        <input 
+            type="text" 
+            x-model="newMessage"
+            @keydown.enter.prevent="sendMessage()"
+            @input="onTyping()"
+            :disabled="!isConnected"
+            placeholder="Type a message..."
+            class="flex-1 px-4 py-3 bg-secondary border border-slate-700 rounded-lg focus:outline-none focus:border-accent disabled:opacity-50"
+        >
+        <button 
+            @click="sendMessage()"
+            :disabled="!isConnected || !newMessage.trim()"
+            class="px-6 py-3 bg-accent text-primary rounded-lg font-bold hover:bg-sky-400 transition disabled:opacity-50"
+        >
+            Send
+        </button>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function chatPage() {
+    return {
+        conversationId: '{{ conversation_id }}',
+        messages: [],
+        newMessage: '',
+        otherUser: null,
+        currentUsername: '',
+        isConnected: false,
+        otherTyping: false,
+        loading: true,
+        ws: null,
+        typingTimeout: null,
+        initialized: false,
+        
+        async init() {
+            if (this.initialized) return;
+            this.initialized = true;
+            
+            try {
+                // Get current user
+                const meResponse = await apiFetch('/api/accounts/me/');
+                if (meResponse.ok) {
+                    const me = await meResponse.json();
+                    this.currentUsername = me.email.split('@')[0];
+                }
+                
+                // Load conversation info
+                await this.loadConversation();
+                
+                // Load messages
+                await this.loadMessages();
+                
+                // Connect WebSocket
+                this.connectWebSocket();
+            } catch (e) {
+                console.error('Init error:', e);
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        async loadConversation() {
+            try {
+                const response = await apiFetch('/api/messaging/conversations/');
+                if (response.ok) {
+                    const data = await response.json();
+                    const convs = data.results || data;
+                    const conv = convs.find(c => c.id === this.conversationId);
+                    
+                    if (conv) {
+                        const other = conv.participants.find(p => p.username !== this.currentUsername);
+                        this.otherUser = other || { username: 'Unknown' };
+                    }
+                }
+            } catch (e) {
+                console.error('Load conversation error:', e);
+            }
+        },
+        
+        async loadMessages() {
+            try {
+                const response = await apiFetch(`/api/messaging/conversations/${this.conversationId}/messages/`);
+                if (response.ok) {
+                    const data = await response.json();
+                    this.messages = data.results || data;
+                    this.scrollToBottom();
+                    
+                    // Mark as read
+                    await apiFetch(`/api/messaging/conversations/${this.conversationId}/read/`, {
+                        method: 'POST',
+                    });
+                }
+            } catch (e) {
+                console.error('Load messages error:', e);
+            }
+        },
+        
+        connectWebSocket() {
+            const token = getToken();
+            if (!token) return;
+            
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/messaging/${this.conversationId}/?token=${token}`;
+            
+            console.log('Connecting WebSocket:', wsUrl.substring(0, 80) + '...');
+            
+            this.ws = new WebSocket(wsUrl);
+            
+            this.ws.onopen = () => {
+                console.log('✅ WebSocket connected');
+                this.isConnected = true;
+            };
+            
+            this.ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                this.handleWebSocketMessage(data);
+            };
+            
+            this.ws.onclose = (event) => {
+                console.log('WebSocket closed:', event.code);
+                this.isConnected = false;
+                
+                // Auto-reconnect after 3 seconds
+                setTimeout(() => {
+                    if (!this.isConnected) {
+                        console.log('Attempting reconnect...');
+                        this.connectWebSocket();
+                    }
+                }, 3000);
+            };
+            
+            this.ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                this.isConnected = false;
+            };
+        },
+        
+        handleWebSocketMessage(data) {
+            console.log('WS message:', data);
+            
+            switch (data.type) {
+                case 'connection.established':
+                    console.log('✅ Connection established');
+                    break;
+                    
+                case 'message.new':
+                    // Add new message
+                    this.messages.push(data.message);
+                    this.scrollToBottom();
+                    
+                    // Mark as read if from other user
+                    if (data.message.sender.username !== this.currentUsername) {
+                        apiFetch(`/api/messaging/conversations/${this.conversationId}/read/`, {
+                            method: 'POST',
+                        });
+                    }
+                    break;
+                    
+                case 'user.typing':
+                    this.otherTyping = data.is_typing;
+                    break;
+                    
+                case 'error':
+                    console.error('WS error:', data.message);
+                    break;
+            }
+        },
+        
+        sendMessage() {
+            if (!this.newMessage.trim() || !this.isConnected) return;
+            
+            const content = this.newMessage.trim();
+            this.newMessage = '';
+            
+            // Send via WebSocket
+            this.ws.send(JSON.stringify({
+                type: 'message.send',
+                content: content,
+                message_type: 'text',
+            }));
+            
+            // Stop typing indicator
+            this.sendTypingIndicator(false);
+        },
+        
+        onTyping() {
+            if (!this.isConnected) return;
+            
+            this.sendTypingIndicator(true);
+            
+            clearTimeout(this.typingTimeout);
+            this.typingTimeout = setTimeout(() => {
+                this.sendTypingIndicator(false);
+            }, 1000);
+        },
+        
+        sendTypingIndicator(isTyping) {
+            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+            
+            this.ws.send(JSON.stringify({
+                type: isTyping ? 'typing.start' : 'typing.stop',
+            }));
+        },
+        
+        scrollToBottom() {
+            setTimeout(() => {
+                const container = document.getElementById('messages-container');
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            }, 50);
+        },
+        
+        formatTime(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true 
+            });
+        },
+    };
+}
+</script>
+{% endblock %}
+
+{% block auth_check %}
+if (!getToken()) {
+    window.location.href = '/login/';
+}
+{% endblock %}

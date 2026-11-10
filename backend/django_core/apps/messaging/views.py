@@ -6,10 +6,11 @@ REST APIs for conversations and messages.
 
 from django.db.models import Q
 from django.utils import timezone
+from django.views.generic import TemplateView
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
+from django.views.generic import TemplateView
 from apps.accounts.models import User
 from apps.messaging.models import Conversation, ConversationParticipant, Message
 from apps.messaging.serializers import (
@@ -235,3 +236,19 @@ class SearchUsersView(generics.ListAPIView):
         return Response(
             ParticipantSerializer(users, many=True).data
         )
+   
+
+
+class MessagingListPageView(TemplateView):
+    """Frontend: Conversations list page."""
+    template_name = "messaging/list.html"
+
+
+class ChatPageView(TemplateView):
+    """Frontend: Chat window page."""
+    template_name = "messaging/chat.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conversation_id"] = str(kwargs.get("conversation_id"))
+        return context

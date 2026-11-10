@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block title %}Messages - Codiction{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-6 py-8" x-data="conversationsPage()" x-init="setTimeout(() => init(), 50)">
+    
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-4xl font-bold mb-2">💬 Messages</h1>
+            <p class="text-slate-400">Chat with other coders</p>
+        </div>
+        <button 
+            @click="showUserSearch = !showUserSearch"
+            class="px-4 py-2 bg-accent text-primary rounded-lg font-semibold hover:bg-sky-400 transition"
+        >
+            <span x-show="!showUserSearch">+ New Chat</span>
+            <span x-show="showUserSearch" x-cloak>✖ Cancel</span>
+        </button>
+    </div>
+    
+    <!-- User Search -->
+    <div x-show="showUserSearch" x-cloak class="bg-secondary rounded-xl p-4 mb-6 border border-slate-800">
+        <input 
+            type="text" 
+            x-model="userSearch"
+            @input.debounce.500ms="searchUsers()"
+            placeholder="🔍 Search users by email..."
+            class="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-accent mb-3"
+        >
+        
+        <div x-show="userResults.length > 0" class="space-y-2">
+            <template x-for="user in userResults" :key="user.id">
+                <button 
+                    @click="startConversation(user.id)"
+                    class="w-full flex items-center gap-3 p-3 hover:bg-slate-800 rounded-lg transition text-left"
+                >
+                    <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold">
+                        <span x-text="user.username.substring(0, 2).toUpperCase()"></span>
+                    </div>
+                    <div>
+                        <div class="font-medium" x-text="user.username"></div>
+                        <div class="text-sm text-slate-400" x-text="user.avatar_url ? '' : 'Click to start chat'"></div>
+                    </div>
+                </button>
+            </template>
+        </div>
+        
+        <div x-show="userSearch.length >= 2 && userResults.length === 0 && !searching" class="text-center py-4 text-slate-400">
+            No users found
+        </div>
+        
+        <div x-show="searching" class="text-center py-4 text-slate-400">
+            Searching...
+        </div>
+    </div>
+    
+    <!-- Loading -->
+    <div x-show="loading" class="text-center py-12">
+        <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-accent border-t-transparent"></div>
+        <p class="mt-2 text-slate-400">Loading conversations...</p>
+    </div>
+    
+    <!-- Error -->
+    <div x-show="error" x-cloak class="bg-red-900/50 border border-red-800 text-red-200 p-4 rounded-lg mb-6">
+        <span x-text="error"></span>
+    </div>
+    
+    <!-- Conversations List -->
+    <div x-show="!loading && !error && conversations.length > 0" x-cloak class="bg-secondary rounded-xl border border-slate-800 overflow-hidden">
+        <template x-for="conv in conversations" :key="conv.id">
+            <a 
+                :href="'/messages/' + conv.id + '/'"
+                class="block p-4 hover:bg-slate-800/50 transition border-b border-slate-800 last:border-b-0"
+            >
+                <div class="flex items-center gap-4">
+                    <!-- Avatar -->
+                    <div class="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center font-bold text-lg shrink-0">
+                        <span x-text="getOtherParticipant(conv).username.substring(0, 2).toUpperCase()"></span>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-semibold" x-text="getOtherParticipant(conv).username"></span>
+                            <span class="text-xs text-slate-400" x-text="formatTime(conv.last_message_at)"></span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-slate-400 truncate" x-text="conv.last_message?.content || 'No messages yet'"></span>
+                            <span 
+                                x-show="conv.unread_count > 0"
+                                class="ml-2 px-2 py-0.5 bg-accent text-primary rounded-full text-xs font-bold"
+                                x-text="conv.unread_count"
+                            ></span>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </template>
+    </div>
+    
+    <!-- Empty State -->
+    <div x-show="!loading && !error && conversations.length === 0" x-cloak class="bg-secondary rounded-xl border border-slate-800 p-12 text-center">
+        <div class="text-6xl mb-4">💬</div>
+        <h3 class="text-xl font-bold mb-2">No conversations yet</h3>
+        <p class="text-slate-400 mb-6">Start a conversation with another coder</p>
+        <button 
+            @click="showUserSearch = true"
+            class="px-6 py-2 bg-accent text-primary rounded-lg font-semibold"
+        >
+            Start New Chat
+        </button>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function conversationsPage() {
+    return {
+        conversations: [],
+        userResults: [],
+        userSearch: '',
+        searching: false,
+        loading: true,
+        error: null,
+        showUserSearch: false,
+        currentUserId: null,
+        initialized: false,
+        
+        async init() {
+            if (this.initialized) return;
+            this.initialized = true;
+            
+            try {
+                // Get current user ID
+                const meResponse = await apiFetch('/api/accounts/me/');
+                if (meResponse.ok) {
+                    const me = await meResponse.json();
+                    this.currentUserId = me.id;
+                }
+                
+                await this.loadConversations();
+            } catch (e) {
+                this.error = e.message;
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        async loadConversations() {
+            try {
+                const response = await apiFetch('/api/messaging/conversations/');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                this.conversations = data.results || data;
+            } catch (e) {
+                this.error = 'Failed to load conversations: ' + e.message;
+            }
+        },
+        
+        async searchUsers() {
+            if (this.userSearch.length < 2) {
+                this.userResults = [];
+                return;
+            }
+            
+            this.searching = true;
+            try {
+                const response = await apiFetch(`/api/messaging/users/?q=${encodeURIComponent(this.userSearch)}`);
+                if (response.ok) {
+                    this.userResults = await response.json();
+                }
+            } catch (e) {
+                console.error('Search error:', e);
+            } finally {
+                this.searching = false;
+            }
+        },
+        
+        async startConversation(userId) {
+            try {
+                const response = await apiFetch('/api/messaging/conversations/create/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({user_id: userId}),
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    window.location.href = `/messages/${data.conversation.id}/`;
+                } else {
+                    const error = await response.json();
+                    alert('Failed: ' + JSON.stringify(error));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        },
+        
+        getOtherParticipant(conv) {
+            const other = conv.participants.find(p => p.id !== this.currentUserId);
+            return other || { username: 'Unknown' };
+        },
+        
+        formatTime(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMin = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMin < 1) return 'now';
+            if (diffMin < 60) return `${diffMin}m ago`;
+            if (diffHours < 24) return `${diffHours}h ago`;
+            if (diffDays < 7) return `${diffDays}d ago`;
+            return date.toLocaleDateString();
+        },
+    };
+}
+</script>
+{% endblock %}
+
+{% block auth_check %}
+if (!getToken()) {
+    window.location.href = '/login/';
+}
+{% endblock %}

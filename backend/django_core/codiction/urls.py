@@ -26,6 +26,8 @@ urlpatterns = [
     path("", include("apps.accounts.frontend_urls", namespace="accounts_frontend")),
     path("", include("apps.problems.frontend_urls", namespace="problems_frontend")),
     path("", include("apps.leaderboard.frontend_urls", namespace="leaderboard_frontend")),
+    path("", include("apps.messaging.frontend_urls", namespace="messaging_frontend")),
+
     
 ]
 
