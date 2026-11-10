@@ -188,4 +188,7 @@ class CompanyLeaderboardView(APIView):
 class LeaderboardPageView(TemplateView):
     """Frontend: Leaderboard page."""
     template_name = "leaderboard/global.html"
-   
+
+class ProfilePageView(TemplateView):
+    """Frontend: User profile page."""
+    template_name = "profile/me.html"

@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - Codiction{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-6 py-8" x-data="profilePage()" x-init="init()">
+    
+    <!-- Loading -->
+    <div x-show="loading" class="text-center py-12">
+        <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-accent border-t-transparent"></div>
+        <p class="mt-2 text-slate-400">Loading profile...</p>
+    </div>
+    
+    <!-- Error -->
+    <div x-show="error" x-cloak class="bg-red-900/50 border border-red-800 text-red-200 p-4 rounded-lg mb-6">
+        <span x-text="error"></span>
+    </div>
+    
+    <!-- Profile Content -->
+    <div x-show="!loading && !error" x-cloak>
+        
+        <!-- Header Card -->
+        <div class="bg-secondary rounded-xl border border-slate-800 p-6 mb-6">
+            <div class="flex items-start gap-6 flex-wrap">
+                <!-- Avatar -->
+                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-accent to-purple-500 flex items-center justify-center text-3xl font-bold text-white">
+                    <span x-text="user?.email?.substring(0, 2).toUpperCase() || '??'"></span>
+                </div>
+                
+                <!-- User Info -->
+                <div class="flex-1 min-w-0">
+                    <h1 class="text-3xl font-bold mb-1" x-text="user?.email?.split('@')[0] || 'User'"></h1>
+                    <p class="text-slate-400 mb-3" x-text="user?.email"></p>
+                    
+                    <div class="flex items-center gap-4 flex-wrap">
+                        <span class="px-3 py-1 bg-slate-800 rounded-full text-sm">
+                            <span class="text-accent font-semibold" x-text="user?.role || 'user'"></span>
+                        </span>
+                        <span class="text-slate-400 text-sm">
+                            Joined <span x-text="formatDate(user?.date_joined)"></span>
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <button 
+                    @click="editing = !editing"
+                    class="px-4 py-2 bg-accent text-primary rounded-lg font-semibold hover:bg-sky-400 transition"
+                >
+                    <span x-show="!editing">✏️ Edit Profile</span>
+                    <span x-show="editing" x-cloak>✖ Cancel</span>
+                </button>
+            </div>
+            
+            <!-- Bio -->
+            <div x-show="user?.bio" class="mt-4 pt-4 border-t border-slate-800">
+                <p class="text-slate-300" x-text="user?.bio"></p>
+            </div>
+        </div>
+        
+        <!-- Edit Form -->
+        <div x-show="editing" x-cloak class="bg-secondary rounded-xl border border-slate-800 p-6 mb-6">
+            <h2 class="text-xl font-bold mb-4">Edit Profile</h2>
+            <form @submit.prevent="saveProfile()" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">First Name</label>
+                    <input 
+                        type="text" 
+                        x-model="form.first_name"
+                        class="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-accent"
+                    >
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Last Name</label>
+                    <input 
+                        type="text" 
+                        x-model="form.last_name"
+                        class="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-accent"
+                    >
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Bio</label>
+                    <textarea 
+                        x-model="form.bio"
+                        rows="3"
+                        maxlength="500"
+                        class="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-accent"
+                    ></textarea>
+                    <p class="text-xs text-slate-500 mt-1" x-text="(form.bio?.length || 0) + '/500'"></p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Avatar URL</label>
+                    <input 
+                        type="url" 
+                        x-model="form.avatar_url"
+                        placeholder="https://example.com/avatar.png"
+                        class="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-accent"
+                    >
+                </div>
+                
+                <div x-show="saveError" class="bg-red-900/50 border border-red-800 text-red-200 p-3 rounded-lg text-sm">
+                    <span x-text="saveError"></span>
+                </div>
+                
+                <div x-show="saveSuccess" class="bg-green-900/50 border border-green-800 text-green-200 p-3 rounded-lg text-sm">
+                    Profile updated successfully!
+                </div>
+                
+                <button 
+                    type="submit"
+                    :disabled="saving"
+                    class="px-6 py-2 bg-accent text-primary rounded-lg font-semibold hover:bg-sky-400 transition disabled:opacity-50"
+                >
+                    <span x-show="!saving">Save Changes</span>
+                    <span x-show="saving" x-cloak>Saving...</span>
+                </button>
+            </form>
+        </div>
+        
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-secondary rounded-xl border border-slate-800 p-6 text-center">
+                <div class="text-3xl font-bold text-accent mb-1" x-text="stats?.total_solved || 0"></div>
+                <div class="text-sm text-slate-400">Problems Solved</div>
+            </div>
+            <div class="bg-secondary rounded-xl border border-slate-800 p-6 text-center">
+                <div class="text-3xl font-bold text-green-400 mb-1" x-text="stats?.easy_solved || 0"></div>
+                <div class="text-sm text-slate-400">Easy</div>
+            </div>
+            <div class="bg-secondary rounded-xl border border-slate-800 p-6 text-center">
+                <div class="text-3xl font-bold text-yellow-400 mb-1" x-text="stats?.medium_solved || 0"></div>
+                <div class="text-sm text-slate-400">Medium</div>
+            </div>
+            <div class="bg-secondary rounded-xl border border-slate-800 p-6 text-center">
+                <div class="text-3xl font-bold text-red-400 mb-1" x-text="stats?.hard_solved || 0"></div>
+                <div class="text-sm text-slate-400">Hard</div>
+            </div>
+        </div>
+        
+        <!-- Rank Card -->
+        <div class="bg-secondary rounded-xl border border-slate-800 p-6 mb-6">
+            <h3 class="text-lg font-bold mb-4">🏆 Global Rank</h3>
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="text-3xl font-bold text-accent">
+                        #<span x-text="myRank?.rank || '—'"></span>
+                    </div>
+                    <div class="text-sm text-slate-400 mt-1">
+                        of <span x-text="myRank?.total_users || 0"></span> users
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm text-slate-400">XP</div>
+                    <div class="text-2xl font-bold" x-text="user?.xp || 0"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Submissions -->
+        <div class="bg-secondary rounded-xl border border-slate-800 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-700">
+                <h3 class="text-lg font-bold">📝 Recent Submissions</h3>
+            </div>
+            
+            <div x-show="submissions.length === 0" class="p-8 text-center text-slate-400">
+                No submissions yet. <a href="/problems/" class="text-accent hover:underline">Solve your first problem →</a>
+            </div>
+            
+            <table x-show="submissions.length > 0" class="w-full">
+                <thead class="bg-slate-800/50 text-left text-sm text-slate-400">
+                    <tr>
+                        <th class="px-6 py-3">Problem</th>
+                        <th class="px-6 py-3">Language</th>
+                        <th class="px-6 py-3">Verdict</th>
+                        <th class="px-6 py-3 text-right">Time</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    <template x-for="sub in submissions" :key="sub.id">
+                        <tr class="hover:bg-slate-800/50 transition">
+                            <td class="px-6 py-3">
+                                <a :href="'/problems/' + sub.problem_slug + '/'" class="hover:text-accent transition">
+                                    <span x-text="sub.problem_title"></span>
+                                </a>
+                            </td>
+                            <td class="px-6 py-3 text-slate-400" x-text="sub.language"></td>
+                            <td class="px-6 py-3">
+                                <span :class="{
+                                    'text-green-400': sub.verdict === 'AC',
+                                    'text-red-400': sub.verdict === 'WA',
+                                    'text-yellow-400': sub.verdict === 'TLE',
+                                    'text-purple-400': sub.verdict === 'CE',
+                                }" x-text="sub.verdict"></span>
+                            </td>
+                            <td class="px-6 py-3 text-right text-sm text-slate-400" x-text="formatDate(sub.created_at)"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+        
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function profilePage() {
+    return {
+        user: null,
+        stats: null,
+        myRank: null,
+        submissions: [],
+        loading: true,
+        error: null,
+        editing: false,
+        saving: false,
+        saveError: null,
+        saveSuccess: false,
+        form: {
+            first_name: '',
+            last_name: '',
+            bio: '',
+            avatar_url: '',
+        },
+        
+        async init() {
+            try {
+                await this.loadProfile();
+                await this.loadStats();
+                await this.loadRank();
+                await this.loadSubmissions();
+                
+                // Initialize form
+                this.form.first_name = this.user?.first_name || '';
+                this.form.last_name = this.user?.last_name || '';
+                this.form.bio = this.user?.bio || '';
+                this.form.avatar_url = this.user?.avatar_url || '';
+            } catch (e) {
+                this.error = e.message;
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        async loadProfile() {
+            const response = await apiFetch('/api/accounts/me/');
+            if (!response.ok) throw new Error('Failed to load profile');
+            this.user = await response.json();
+        },
+        
+        async loadStats() {
+            // Calculate stats from submissions
+            try {
+                const response = await apiFetch('/api/submissions/?page_size=100');
+                if (response.ok) {
+                    const data = await response.json();
+                    const subs = data.results || data;
+                    const solved = new Set();
+                    const solvedByDifficulty = { Easy: new Set(), Medium: new Set(), Hard: new Set() };
+                    
+                    for (const s of subs) {
+                        if (s.verdict === 'AC' && !s.is_sample_run) {
+                            solved.add(s.problem_slug);
+                        }
+                    }
+                    
+                    this.stats = {
+                        total_solved: solved.size,
+                        easy_solved: 0,
+                        medium_solved: 0,
+                        hard_solved: 0,
+                    };
+                }
+            } catch (e) {
+                console.log('Stats error:', e);
+                this.stats = { total_solved: 0, easy_solved: 0, medium_solved: 0, hard_solved: 0 };
+            }
+        },
+        
+        async loadRank() {
+            try {
+                const response = await apiFetch('/api/leaderboard/me/');
+                if (response.ok) {
+                    this.myRank = await response.json();
+                }
+            } catch (e) {
+                console.log('Rank error:', e);
+            }
+        },
+        
+        async loadSubmissions() {
+            try {
+                const response = await apiFetch('/api/submissions/?page_size=10');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.submissions = data.results || data;
+                }
+            } catch (e) {
+                console.log('Submissions error:', e);
+            }
+        },
+        
+        async saveProfile() {
+            this.saving = true;
+            this.saveError = null;
+            this.saveSuccess = false;
+            
+            try {
+                const response = await apiFetch('/api/accounts/me/', {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(this.form),
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(JSON.stringify(data));
+                }
+                
+                this.user = await response.json();
+                this.saveSuccess = true;
+                this.editing = false;
+                
+                setTimeout(() => { this.saveSuccess = false; }, 3000);
+            } catch (e) {
+                this.saveError = e.message;
+            } finally {
+                this.saving = false;
+            }
+        },
+        
+        formatDate(dateStr) {
+            if (!dateStr) return 'N/A';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffDays === 0) return 'Today';
+            if (diffDays === 1) return 'Yesterday';
+            if (diffDays < 7) return `${diffDays} days ago`;
+            
+            return date.toLocaleDateString();
+        },
+    };
+}
+</script>
+{% endblock %}
+
+{% block auth_check %}
+if (!getToken()) {
+    window.location.href = '/login/';
+}
+{% endblock %}

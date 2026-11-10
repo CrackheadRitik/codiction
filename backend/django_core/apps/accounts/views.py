@@ -153,3 +153,8 @@ class LoginPageView(TemplateView):
 
 class RegisterPageView(TemplateView):
     template_name = "auth/register.html"
+
+
+class ProfilePageView(TemplateView):
+    """Frontend: User profile page."""
+    template_name = "profile/me.html"
