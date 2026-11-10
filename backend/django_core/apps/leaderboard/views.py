@@ -5,6 +5,7 @@ APIs for global and company-specific leaderboards.
 """
 
 from django.db.models import Count, Q
+from django.views.generic import TemplateView
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -183,3 +184,8 @@ class CompanyLeaderboardView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+class LeaderboardPageView(TemplateView):
+    """Frontend: Leaderboard page."""
+    template_name = "leaderboard/global.html"
+   

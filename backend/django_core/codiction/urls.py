@@ -25,6 +25,8 @@ urlpatterns = [
 
     path("", include("apps.accounts.frontend_urls", namespace="accounts_frontend")),
     path("", include("apps.problems.frontend_urls", namespace="problems_frontend")),
+    path("", include("apps.leaderboard.frontend_urls", namespace="leaderboard_frontend")),
+    
 ]
 
 if settings.DEBUG:

@@ -5,7 +5,7 @@ API endpoints for problems and topics.
 """
 
 from django.db.models import Count, Q
-from django.views.generic import TemplateView
+from django.views.generic import DetailView, TemplateView
 from rest_framework import filters, generics, permissions
 from rest_framework.pagination import PageNumberPagination
 
@@ -119,8 +119,7 @@ class TopicDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.AllowAny]
     lookup_field = "slug"
 
-class ProblemListPageView(TemplateView):
-    template_name = "problems/list.html"
+
 
 
 class ProblemListPageView(TemplateView):
@@ -128,11 +127,16 @@ class ProblemListPageView(TemplateView):
     template_name = "problems/list.html"
 
 
-class ProblemDetailPageView(TemplateView):
+class ProblemDetailPageView(DetailView):
     """Frontend: Problem detail page with Monaco editor."""
+    
+    model = Problem
     template_name = "problems/detail.html"
+    context_object_name = "problem"
+    slug_url_kwarg = "slug"
+    
+    def get_queryset(self):
+        return Problem.objects.prefetch_related("topics", "test_cases").filter(is_published=True)
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["slug"] = kwargs.get("slug")
-        return context
+
+    
